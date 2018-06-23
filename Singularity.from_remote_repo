@@ -1,0 +1,31 @@
+Bootstrap: docker
+From: alpine:latest
+
+%environment
+  PATH=/opt/hh-suite/bin:$PATH
+  HHLIB=/opt/hh-suite
+  export PATH HHLIB
+  export HHLIB
+
+%post
+  mkdir -p /opt/hh-suite
+  dirtemp=`mktemp -d`
+  cd $dirtemp
+  apk add --no-cache --virtual to_be_deleted gcc g++ cmake musl-dev git ninja sed
+  apk add --no-cache bash grep libstdc++ libgomp
+  git clone https://github.com/soedinglab/hh-suite.git
+  cd hh-suite
+  git pull
+  git submodule init
+  git submodule update
+  find . -type f -exec sed -i 's/include <stdlib.h>/include <stdlib.h>\n#include <stdint.h>/g' {} \;
+  mkdir build
+  cd build
+  cmake -G Ninja -DHAVE_AVX2=1 -DHAVE_MPI=0 -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/hh-suite ..
+  ninja
+  ninja install
+  apk del to_be_deleted
+  rm -rf $dirtemp
+
+%runscript
+  exec hhblits "$@"

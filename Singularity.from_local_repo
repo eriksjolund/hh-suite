@@ -1,0 +1,33 @@
+Bootstrap: docker
+From: alpine:latest
+
+%environment
+  PATH=/opt/hh-suite/bin:$PATH
+  HHLIB=/opt/hh-suite
+  export PATH HHLIB
+  export HHLIB
+
+%setup
+  # The singularity image should be built from the git repository directory.
+  # sudo singularity build --writable /tmp/hhblits.img ./Singularity.from_local_repo
+  #
+  # Just testing the existence of some files as a sanity check.
+  if test ! -f ./src/hhblits.cpp ; then false ; fi
+  if test ! -f ./Singularity.from_local_repo; then false ; fi
+  cp -r . ${SINGULARITY_ROOTFS}/tmpsource
+
+%post
+  mkdir -p /opt/hh-suite
+  dirtemp=`mktemp -d`
+  cd $dirtemp
+  apk add --no-cache --virtual to_be_deleted gcc g++ cmake musl-dev git ninja
+  apk add --no-cache bash grep libstdc++ libgomp
+  cmake -G Ninja -DHAVE_AVX2=1 -DHAVE_MPI=0 -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/hh-suite /tmpsource
+  ninja
+  ninja install
+  apk del to_be_deleted
+  rm -rf $dirtemp
+  rm -rf /tmpsource    
+
+%runscript
+  exec hhblits "$@"
